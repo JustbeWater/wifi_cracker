@@ -28,14 +28,53 @@ class MY_GUI():
         self.get_wifi_value = StringVar(value='搜索后双击 wifi 以填充')     # wifi名
         self.get_value = StringVar()                                      # 文件路径
         self.get_wifipwd_value = StringVar()                              # 正确密码
-        self.mylog = None
-        self.waitime = IntVar(value=5)
+        self.mylog = None                                                 # 日志框
+        self.waitime = IntVar(value=5)                                    # 连接等待时长
+        self.codeSet = False                                              # 默认不使用特殊编码
+
+    def usefuc(self):
+        how_to_use = Toplevel(master=self.myWindow)
+        how_to_use.title('使用方法')
+        w, h = self.myWindow.maxsize()
+        myh = myw = 300
+        # 出现在窗口正中间
+        how_to_use.geometry(f'{myw}x{myh}+{(w - myw)//2}+{(h - myh)//2}')
+        how_to_use.focus_get()
+        mytext = Text(how_to_use, wrap=WORD, width=40, height=22)
+        mytext.pack()
+        content = "1、本工具仅用于学术交流和实验使用。\n\n2、本工具通过WIFI名称和密码本对同一WIFI进行重复连接, 直到连接成功或密码本穷尽。\n\n3、点击搜索附近WIFI可以找到多个WIFI并在WIFI列表中显示, 此时双击WIFI列表中的一项, 即可填充WIFI名称, 当然也可以手动填写。\n\n4、文件路径用于填写密码文件路径, 可以通过旁边的添加按钮选择文件。\n\n5、WIFI密码, 可以填写正确的WIFI密码, 该密码可以用于测试连接, 测试得到的连接速度会自动填充到下方的连接等待时长。破解成功时WIFI密码也会填充到此处。\n\n6、连接等待时长, 指的是连续尝试两个密码的时间间隔, 如果时间间隔过短, 容易因为提前中断而跳过正确密码, 因此该时间应当适量延长。\n\n7、运行日志会在下方显示, 方便检查错误或者用于确定程序还在运行。\n"
+        mytext.insert(END, content)
+
+    def notice(self):
+        need_to_notice = Toplevel(master=self.myWindow)
+        need_to_notice.title('注意事项')
+        w, h = self.myWindow.maxsize()
+        myh = myw = 300
+        # 出现在窗口正中间
+        need_to_notice.geometry(f'{myw}x{myh}+{(w - myw)//2}+{(h - myh)//2}')
+        need_to_notice.focus_get()
+        mytext = Text(need_to_notice, wrap=WORD, width=40, height=22)
+        mytext.pack()
+        content = "1、该工具在某些机器上可能会出现中文WIFI名乱码的情况, 若出现该情况, 可以尝试点击重新编码按钮后重新搜索并开始\n\n2、该工具无法连接名字里带有特殊字符的WIFI, 这里说的特殊字符不包括!@#$%^&*~等字符, 目前经过简单测试, 发现有影响的字符有: 希腊字母, 日语韩语等外语, 数学字符如 > < 等。如果遇到日志中显示尝试破解, 但是WIFI图标没有处于正在连接的状态, 很有可能时WIFI名中有以上特殊字符, 这是正常的。\n"
+        mytext.insert(END, content)
+
+    def change_code(self):
+        self.codeSet = True
 
     def set_init_window(self):
         # ********* 窗口配置 ********
         self.myWindow.title("WIFI破解工具")
-        w, h = self.myWindow.maxsize()
-        self.myWindow.geometry(f'550x630+{(w - 550)//2}+{(h - 750)//2}')
+        w, _ = self.myWindow.maxsize()
+        self.myWindow.geometry(f'550x630+{(w - 550)//2}+0')
+
+        # ********* 顶部菜单栏 **********
+        myMenu = Menu(self.myWindow)
+        m1 = Menu(myMenu, tearoff=0)    # 隐藏虚线
+        m1.add_command(label='使用说明', command=self.usefuc)
+        m1.add_command(label='注意事项', command=self.notice)
+
+        myMenu.add_cascade(label='帮助', menu=m1)
+        self.myWindow.config(menu=myMenu)   # 配置使用
 
         # *********** wifi展示列 *********
         self.wifi_labelframe = LabelFrame(self.myWindow, text="wifi列表")
@@ -69,11 +108,12 @@ class MY_GUI():
         Label(labelframe, text="WIFI帐号: ").grid(column=0, row=0, sticky=W)
         Entry(labelframe, textvariable=self.get_wifi_value, width=22).grid(column=1, row=0, sticky=W)
         Button(labelframe, text="搜索附近WiFi", command=lambda:self.work_in_back(self.scans_wifi_list)).grid(column=2, row=0, padx=10, pady=5, sticky=W)
-        Button(labelframe, text="开始破解", command=lambda:self.work_in_back(self.startCrack)).grid(column=3, row=0, sticky=W, padx=50)
+        Button(labelframe, text='重新编码', command=lambda:self.change_code).grid(column=3, row=0)
 
         Label(labelframe, text="文件路径：").grid(column=0, row=1, sticky=W)
         Entry(labelframe, width=22, textvariable=self.get_value).grid(column=1, row=1, sticky=W)
         Button(labelframe, text="添加密码文件", command=lambda:self.work_in_back(self.add_pwd_file)).grid(column=2, row=1, sticky=W, padx=10, pady=5)
+        Button(labelframe, text="开始破解", command=lambda:self.work_in_back(self.startCrack)).grid(column=3, row=1, sticky=W, padx=50)
 
         Label(labelframe, text="WIFI密码: ").grid(column=0, row=2, sticky=W)
         Entry(labelframe, width=22, textvariable=self.get_wifipwd_value).grid(column=1, row=2, sticky=W, padx=1, pady=5)
@@ -114,8 +154,10 @@ class MY_GUI():
             self.wifi_tree.delete(i)
         # 插入新的结果
         for index, wifi_info in enumerate(scans_res):
-            # ssid = wifi_info.ssid.encode('raw_unicode_escape').decode('utf-8')
-            ssid = wifi_info.ssid
+            if self.codeSet:
+                ssid = wifi_info.ssid.encode('raw_unicode_escape').decode('utf-8')
+            else:
+                ssid = wifi_info.ssid
             self.wifi_tree.insert("", 'end', values=(index + 1, ssid, wifi_info.bssid, wifi_info.signal))
         self.mylog.insert_and_see(f"搜索完成.")
 
