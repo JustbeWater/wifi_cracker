@@ -59,7 +59,11 @@ class MY_GUI():
         mytext.insert(END, content)
 
     def change_code(self):
-        self.codeSet = True
+        if self.codeSet:
+            self.codeSet = False
+        else:
+            self.codeSet = True
+        self.mylog.insert_and_see('编码已更改, 请重新搜索wifi.')
 
     def set_init_window(self):
         # ********* 窗口配置 ********
@@ -108,7 +112,7 @@ class MY_GUI():
         Label(labelframe, text="WIFI帐号: ").grid(column=0, row=0, sticky=W)
         Entry(labelframe, textvariable=self.get_wifi_value, width=22).grid(column=1, row=0, sticky=W)
         Button(labelframe, text="搜索附近WiFi", command=lambda:self.work_in_back(self.scans_wifi_list)).grid(column=2, row=0, padx=10, pady=5, sticky=W)
-        Button(labelframe, text='重新编码', command=lambda:self.change_code).grid(column=3, row=0)
+        Button(labelframe, text='重新编码', command=lambda:self.change_code()).grid(column=3, row=0)
 
         Label(labelframe, text="文件路径：").grid(column=0, row=1, sticky=W)
         Entry(labelframe, width=22, textvariable=self.get_value).grid(column=1, row=1, sticky=W)
