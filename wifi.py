@@ -216,9 +216,13 @@ class MY_GUI():
                 raw_data = file.read()
                 result = chardet.detect(raw_data)
                 encoding = result['encoding']
+        except Exception as e:
+            self.mylog.insert_and_see(e)
 
-            with open(filePath, "r", errors="ignore", encoding=encoding) as pwd_file:
-                for pwd in pwd_file:
+        with open(filePath, "r", errors="ignore", encoding=encoding) as pwd_file:
+            for pwd in pwd_file:
+                # 每次循环都应该单独设置一个异常检测，防止因为其中一个密码导致的错误使程序停止运行
+                try:
                     self.mylog.insert_and_see(f"正在尝试密码 {pwd.strip()}...")
                     if self.connect(pwd.strip(), wifi_ssid, crack=True):
                         self.get_wifipwd_value.set(pwd.strip())
@@ -226,10 +230,10 @@ class MY_GUI():
                         self.mylog.insert_and_see(f"正确密码已写入输入框, 有需要可复制.")
                         tkinter.messagebox.showinfo('提示', f"密码 : {pwd.strip()}")
                         return
-                self.mylog.insert_and_see('破解失败，尝试所有密码均不匹配！')
-                tkinter.messagebox.showinfo('提示', '破解失败，尝试所有密码均不匹配！')
-        except Exception as e:
-            self.mylog.insert_and_see(e)
+                except Exception as e:
+                    self.mylog.insert_and_see(e)
+            self.mylog.insert_and_see('破解失败，尝试所有密码均不匹配！')
+            tkinter.messagebox.showinfo('提示', '破解失败，尝试所有密码均不匹配！')
 
     def connect(self, pwd_str, wifi_ssid, crack=False):
         profile = pywifi.Profile()
@@ -239,7 +243,11 @@ class MY_GUI():
         profile.cipher = const.CIPHER_TYPE_CCMP
         profile.key = pwd_str
         self.iface.remove_all_network_profiles()
-        tmp_profile = self.iface.add_network_profile(profile)
+        try:
+            tmp_profile = self.iface.add_network_profile(profile)
+        except:
+            profile.akm.append(const.AKM_TYPE_WPA2PSK)  # 如果报错则改为列表追加而非赋值
+            tmp_profile = self.iface.add_network_profile(profile)
         self.iface.connect(tmp_profile)
         # 破解模式
         if crack:
