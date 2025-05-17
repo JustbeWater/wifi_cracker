@@ -11,6 +11,7 @@ import threading
 
 # 当前版本存在的问题：
 # 无法破解带有特殊字符的wifi 如 希腊字母、日语等，还有 < > 这种符号
+# 需要手动修改 profile.akm的赋值方式，windows用的是=，linux用的是append
 
 # 创建一个类，继承自listbox，写一个同时执行插入和查看最后一行的操作
 class Log_Listbox(Listbox):
@@ -20,12 +21,12 @@ class Log_Listbox(Listbox):
 
 class MY_GUI():
     def __init__(self, myWindow:Tk):
-        self.myWindow = myWindow
-        self.wifi = pywifi.PyWiFi()  # 抓取网卡接口
-        self.iface = self.wifi.interfaces()[0]  # 抓取第一个无线网卡
+        self.myWindow = myWindow                                          # 窗口
+        self.wifi = pywifi.PyWiFi()                                       # 抓取网卡接口
+        self.iface = self.wifi.interfaces()[0]                            # 抓取第一个无线网卡
 
         # GUI元素
-        self.get_wifi_value = StringVar(value='搜索后双击 wifi 以填充')     # wifi名
+        self.get_wifi_value = StringVar(value='搜索后双击 wifi 以填充')    # wifi名
         self.get_value = StringVar()                                      # 文件路径
         self.get_wifipwd_value = StringVar()                              # 正确密码
         self.mylog = None                                                 # 日志框
@@ -69,8 +70,10 @@ class MY_GUI():
     def change_exclude(self):
         if self.exclude:
             self.exclude = False
+            self.mylog.insert_and_see('已包含长度小于8的密码')
         else:
             self.exclude = True
+            self.mylog.insert_and_see('已排除长度小于8的密码')
 
     def set_init_window(self):
         # ********* 窗口配置 ********
@@ -230,11 +233,11 @@ class MY_GUI():
 
         with open(filePath, "r", errors="ignore", encoding=encoding) as pwd_file:
             for pwd in pwd_file:
+                if len(pwd.strip()) < 8 and self.exclude:    # 自动排除字符长度小于 8 的密码
+                    continue
                 # 每次循环都应该单独设置一个异常检测，防止因为其中一个密码导致的错误使程序停止运行
                 try:
                     self.mylog.insert_and_see(f"正在尝试密码 {pwd.strip()}...")
-                    if len(pwd.strip()) < 8 and self.exclude:    # 自动排除字符长度小于 8 的密码
-                        continue
                     if self.connect(pwd.strip(), wifi_ssid, crack=True):
                         self.get_wifipwd_value.set(pwd.strip())
                         self.mylog.insert_and_see(f'破解成功，密码：{pwd.strip()}')
