@@ -24,7 +24,6 @@ python wifi.py
 ```
 pyinstaller --windowed --onefile --icon=你的图片文件 wifi.py
 ```
-+ 从该项目的 release 中下载（仅提供windows版本）
 ## 更多
 + 使用说明和注意事项在工具窗口顶部菜单栏的帮助一栏可见
 
