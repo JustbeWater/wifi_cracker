@@ -12,7 +12,6 @@ import platform
 
 # 当前版本存在的问题：
 # 无法破解带有特殊字符的wifi 如 希腊字母、日语等，还有 < > 这种符号
-# 没有排除纯数字或者纯字母的密码，在新时代的安全要求下，将会有很多多余的尝试
 
 # 创建一个类，继承自listbox，写一个同时执行插入和查看最后一行的操作
 class Log_Listbox(Listbox):
@@ -33,7 +32,9 @@ class MY_GUI():
         self.mylog = None                                                 # 日志框
         self.waitime = IntVar(value=5)                                    # 连接等待时长
         self.codeSet = False                                              # 默认不使用特殊编码
-        self.exclude = True                                               # 默认排除长度小于8的密码
+        self.exl_8 = True                                                 # 默认排除长度小于8的密码（否则频繁警告）
+        self.exl_d = False                                                # 默认不排除纯数字
+        self.exl_a = False                                                # 默认不排除纯字母
         self.pwdNow = None                                                # 当前尝试密码
         self.codeBook = None                                              # 当前密码本
 
@@ -70,13 +71,29 @@ class MY_GUI():
             self.codeSet = True
         self.mylog.insert_and_see('编码已更改, 请重新搜索wifi.')
     
-    def change_exclude(self):
-        if self.exclude:
-            self.exclude = False
+    def exclude_less_than_8(self):
+        if self.exl_8:
+            self.exl_8 = False
             self.mylog.insert_and_see('已包含长度小于8的密码')
         else:
-            self.exclude = True
+            self.exl_8 = True
             self.mylog.insert_and_see('已排除长度小于8的密码')
+
+    def exclude_digit(self):
+        if self.exl_d:
+            self.exl_d = False
+            self.mylog.insert_and_see('已包含纯数字密码')
+        else:
+            self.exl_d = True
+            self.mylog.insert_and_see('已排除纯数字密码')
+
+    def exclude_alpha(self):
+        if self.exl_a:
+            self.exl_a = False
+            self.mylog.insert_and_see('已包含纯字母密码')
+        else:
+            self.exl_a = True
+            self.mylog.insert_and_see('已排除纯字母密码')
 
     def set_init_window(self):
         # ********* 窗口配置 ********
@@ -139,11 +156,13 @@ class MY_GUI():
         Label(labelframe, text="WIFI密码: ").grid(column=0, row=2, sticky=W)
         Entry(labelframe, width=22, textvariable=self.get_wifipwd_value).grid(column=1, row=2, sticky=W, padx=1, pady=5)
         Button(labelframe, text='测试连接', command=lambda:self.work_in_back(self.testConnect)).grid(column=2, row=2, sticky=W, pady=5, padx=10)
-        Button(labelframe, text='排除/包含长度小于8的密码', command=lambda:self.change_exclude()).grid(column=3, row=2)
+        Button(labelframe, text='包含长度小于8的密码', command=lambda:self.exclude_less_than_8()).grid(column=3, row=2)
         Label(labelframe, text='可以尝试输入密码测试连接热点的速度, 并适当调整连接等待时间', font=('',9), fg='red').place(x=0, y=120)
 
         Label(labelframe, text='连接等待时长: ').grid(column=0, row=3, pady=24)
         Entry(labelframe, width=22, textvariable=self.waitime).grid(column=1, row=3)
+        Button(labelframe, text='排除纯数字', command=lambda:self.exclude_digit()).grid(column=2, row=3, sticky=W, pady=5, padx=10)
+        Button(labelframe, text='排除纯字母', command=lambda:self.exclude_alpha()).grid(column=3, row=3)
 
         Label(labelframe, text='等待时间在一定范围内越长, 连接上的机会越大.', font=('', 9), fg='red').place(x=0, y=170)
 
@@ -191,11 +210,14 @@ class MY_GUI():
     # 添加密码本
     def add_pwd_file(self):
         self.codeBook = tkinter.filedialog.askopenfilename()
-        if "Crack.record" in self.codeBook:
+        if "Crack.record" in self.codeBook: # 当添加的密码本为上次的记录时
             with open(self.codeBook, 'r') as f:
                 record = f.read().split()
                 self.codeBook = record[0]
                 self.pwdNow = record[1]
+                self.skip = True    # 打开跳过已尝试密码开关
+        else:
+            self.skip = False   # 否则关闭跳过开关
         if self.codeBook:
             self.get_value.set(self.codeBook)
             self.mylog.insert_and_see(f"已加载文件 {self.codeBook}.")
@@ -251,15 +273,18 @@ class MY_GUI():
             self.mylog.insert_and_see(e)
             encoding='utf-8'
 
-        skip = True   # 跳过已尝试密码的标志
         with open(filePath, "r", errors="ignore", encoding=encoding) as pwd_file:
             for pwd in pwd_file:    # 逐行处理防止爆内存
-                if skip and self.pwdNow and pwd.strip() != self.pwdNow:     # 跳过之前已经尝试过的密码
+                if self.skip and self.pwdNow and pwd.strip() != self.pwdNow:     # 跳过之前已经尝试过的密码
                     continue
-                elif self.pwdNow and pwd.strip() == self.pwdNow:    # 找到上次记录的密码后，修改标记，
-                    skip = False
+                elif self.pwdNow and pwd.strip() == self.pwdNow:    # 找到上次记录的密码后，修改标记
+                    self.skip = False
                 self.pwdNow = pwd.strip()
-                if len(self.pwdNow) < 8 and self.exclude:    # 自动排除字符长度小于 8 的密码
+                if self.exl_8 and len(self.pwdNow) < 8:    # 排除字符长度小于 8 的密码
+                    continue
+                if self.exl_d and self.pwdNow.isdigit():    # 排除纯数字密码
+                    continue
+                if self.exl_a and self.pwdNow.isalpha():    # 排除纯字母密码
                     continue
                 # 每次循环都应该单独设置一个异常检测，防止因为其中一个密码导致的错误使程序停止运行
                 try:
