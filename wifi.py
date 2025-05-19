@@ -242,7 +242,7 @@ class MY_GUI():
             tkinter.messagebox.showinfo('提示', '尚未输入密码')
             return
         
-        self.mylog.insert_and_see(f"正在尝试密码 {wifi_pwd}...")
+        self.mylog.insert_and_see(f"正在尝试密码 {wifi_pwd}")
         start = time.time()
         if self.connect(wifi_pwd, wifi_ssid):
             end = time.time()
@@ -288,7 +288,7 @@ class MY_GUI():
                     continue
                 # 每次循环都应该单独设置一个异常检测，防止因为其中一个密码导致的错误使程序停止运行
                 try:
-                    self.mylog.insert_and_see(f"正在尝试密码 {self.pwdNow}...")
+                    self.mylog.insert_and_see(f"正在尝试密码 {self.pwdNow}")
                     if self.connect(self.pwdNow, wifi_ssid, crack=True):
                         self.get_wifipwd_value.set(pwd.strip())
                         self.mylog.insert_and_see(f'破解成功，密码：{self.pwdNow}')
