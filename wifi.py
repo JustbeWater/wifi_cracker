@@ -198,14 +198,22 @@ class MY_GUI():
         # 清空原有结果
         for i in self.wifi_tree.get_children():
             self.wifi_tree.delete(i)
-        # 插入新的结果
-        for index, wifi_info in enumerate(scans_res):
-            if self.codeSet:
-                ssid = wifi_info.ssid.encode('raw_unicode_escape').decode('utf-8')
-            else:
-                ssid = wifi_info.ssid
-            self.wifi_tree.insert("", 'end', values=(index + 1, ssid, wifi_info.bssid, wifi_info.signal))
-        self.mylog.insert_and_see(f"搜索完成.")
+
+        # 构建SSID到最强信号的映射字典，同名wifi只保留一个信号最强的
+        ssid_map = {}
+        for wifi in scans_res:
+            ssid = wifi.ssid.encode('raw_unicode_escape').decode('utf-8') if self.codeSet else wifi.ssid
+            if ssid not in ssid_map or wifi.signal > ssid_map[ssid].signal:
+                ssid_map[ssid] = wifi
+        
+        # 按信号强度降序排序
+        sorted_res = sorted(ssid_map.values(), key=lambda x: x.signal, reverse=True)
+
+        # 插入处理后的结果
+        for index, wifi_info in enumerate(sorted_res):
+            display_ssid = wifi_info.ssid.encode('raw_unicode_escape').decode('utf-8') if self.codeSet else wifi_info.ssid
+            self.wifi_tree.insert("", 'end', values=(index + 1, display_ssid, wifi_info.bssid, wifi_info.signal))
+        self.mylog.insert_and_see("搜索完成")
 
     # 添加密码本
     def add_pwd_file(self):
