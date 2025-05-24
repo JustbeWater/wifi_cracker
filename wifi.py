@@ -294,6 +294,8 @@ class MY_GUI():
                     continue
                 if self.exl_a and self.pwdNow.isalpha():    # 排除纯字母密码
                     continue
+                if len(self.pwdNow) > 63:   # 无条件排除超过63字节的，这是802.11i的标准
+                    continue
                 # 每次循环都应该单独设置一个异常检测，防止因为其中一个密码导致的错误使程序停止运行
                 try:
                     self.mylog.insert_and_see(f"正在尝试密码 {self.pwdNow}")
@@ -352,7 +354,7 @@ class MY_GUI():
     def delete(self):
         if self.pwdNow and self.codeBook:
             with open('Crack.record', 'w') as f:
-                f.write(f"{self.codeBook} {self.pwdNow}")
+                f.write(f"{self.codeBook}\n{self.pwdNow}")
         self.myWindow.destroy() # 手动销毁窗口
 
 def gui_start():
